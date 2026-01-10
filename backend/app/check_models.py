@@ -1,4 +1,4 @@
-import os 
+import os
 from dotenv import load_dotenv
 from google import genai
 
@@ -8,19 +8,17 @@ load_dotenv()
 # Set up Google GenAI API client
 client = genai.Client(api_key=os.getenv("GOOGLE_GENAI_API_KEY"))
 
-def simple_query():
-    print("Sending request to Gemini...")
+def calculate_models():
+    print("Calculating available models...")
 
     try:
-        response = client.models.generate_content(
-            model = "gemini-2.5-flash",
-            contents = "Write a short poem about the beauty of nature.",
-        )
-
-        print("Response from Gemini:", response.text)
-
+        for model in client.models.list():
+            print(f"- {model.name}")
+            
     except Exception as e:
         print("An error occurred:", str(e))
 
+
 if __name__ == "__main__":
-    simple_query()
+    calculate_models()
+                  

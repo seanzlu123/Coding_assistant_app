@@ -1,5 +1,5 @@
 python-dotenv==1.2.1
-mss=10.1.0
+mss==10.1.0
 sounddevice==0.5.3
 Pillow==12.1.0
 numpy==2.4.1

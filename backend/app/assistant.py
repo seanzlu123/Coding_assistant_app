@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+from pathlib import Path
 from google import genai
 from google.genai import types
 import os
@@ -8,60 +9,82 @@ import screen
 import audio
 
 # Load environment variables from .env file
+current_dir = Path(__file__).resolve().parent
+env_path = current_dir.parent.parent / '.env'
 load_dotenv()
+
+api_key = os.getenv("GOOGLE_API_KEY") 
+
+if not api_key:
+    raise ValueError("API Key not found.")
+
 client = genai.Client(api_key=os.getenv("GOOGLE_GENAI_API_KEY"))
 
 class Agent:
     def __init__(self):
-        self.model = "gemini-2.0-flash"
+        self.model = "gemini-2.5-flash"
         self.client = client
         self.history = []
-        
+    
+    def upload_image(self, image_path):
+        '''Uploads a image file using Gemini Files API 
+        and returns the uploaded file reference.'''
+
+        image = self.client.files.upload(file=image_path)
+        return image
+
+    def upload_audio(self, audio_path):
+        '''Uploads an audio file using Gemini Files API 
+        and returns the uploaded file reference.'''
+
+        print(f"Uploading audio from: {audio_path}")
+        audio = self.client.files.upload(file=audio_path)
+        return audio
+
     def respond(self, text_input, audio_filename=None, screen_image=None):
+      
         """
         Gathers all inputs (Text, Audio, Screen), packages them for Gemini,
         and returns the text response.
         """
 
-        #Initializes parts list with just text input first
-        parts = [types.Part.from_text(text=text_input)]
-
-        #If audio input is provided, process and add to parts
+        my_contents = []
         if audio_filename:
-            print(f"Uploading audio file: {audio_filename}")
-            uploaded_audio = self.client.files.uploaded_audio(path=audio_filename)
-            parts.append(types.Part.from_audio(audio=uploaded_audio))
-    
-        #If screen image is provided, process and add to parts
+            audio_file = self.upload_audio(audio_filename)
+            my_contents.append(audio_file)
+            print("Audio file uploaded.")
+
         if screen_image:
-            print("Processing screen image input")
-            uploaded_screen_image = self.client.files.uploaded_screen_image(image=screen_image)
-            parts.append(types.Part.from_image(image=uploaded_screen_image))
+            if not isinstance(screen_image, str):
+                print("Detected PIL Image object. Saving to file...")
+                temp_filename = "temp_screen.png"
+                screen_image.save(temp_filename)
+                screen_image = temp_filename # Update variable to be the PATH string
+                
+            image_file = self.upload_image(screen_image)
+            my_contents.append(image_file)
+            print("Screen image uploaded.")
+        
+        if text_input:
+            my_contents.append(text_input)
+            print("Text input added.")
 
-        #Generate response from Gemini model
-        print("Thinking...")
-        response = client.models.generate_content(
-            model = self.model,
-            contents = [{
-                "parts": parts
-            }]
-        )
-
+        response = client.models.generate_content(model=self.model,contents = my_contents)
         return response.text
 
 if __name__ == "__main__":
     agent = Agent()
 
     #Take screenshot
-    screen_image = screen.take_screenshot()
+    image_path = screen.take_screenshot()
 
     #Record audio 
-    audio_filename = audio.record_audio(duration=5, file_name = "test_audio1.wav")
+    audio_path= audio.record_audio(duration=5, file_name = "test_audio1.wav")
 
     answer = agent.respond(
         text_input = "You are an AI assistant pair programmer. Respond to the user based on the screenshot and audio provided.",
-        audio_filename = audio_filename,
-        screen_image = screen_image
+        audio_filename = audio_path,
+        screen_image = image_path
     )
 
     print(f"AI Response: {answer}")

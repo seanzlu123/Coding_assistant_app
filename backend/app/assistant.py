@@ -8,6 +8,7 @@ import os
 import screen
 import audio
 import voice
+import helper
 
 # Load environment variables from .env file
 current_dir = Path(__file__).resolve().parent
@@ -19,7 +20,7 @@ api_key = os.getenv("GOOGLE_API_KEY")
 if not api_key:
     raise ValueError("API Key not found.")
 
-client = genai.Client(api_key=os.getenv("GOOGLE_GENAI_API_KEY"))
+client = genai.Client(api_key=api_key)
 
 class Agent:
     def __init__(self):
@@ -78,18 +79,24 @@ class Agent:
         if text_input:
             my_contents.append(text_input)
             print("Text input added.")
-
+    
         response = self.chat.send_message(message=my_contents)
-
+        
         if response.text and self.default_response_mode:
             return response.text
         else:
-            voice.speak(response.text)
-            return None
+            # VOICE MODE
+            print(response.text) # 1. Print raw text so you can read code
+            
+            # 2. Clean the text so the voice skips the code
+            clean_text = helper.filter_noise_from_text(response.text)
+            
+            # 3. Speak the CLEAN text
+            voice.speak(clean_text)
 
 if __name__ == "__main__":
     agent = Agent()
-    agent.toggle_response_mode()  # Switch to voice mode
+    agent.toggle_response_mode() # Switch to voice mode
 
     try: 
         while True:
@@ -106,6 +113,7 @@ if __name__ == "__main__":
                 audio_filename = audio_path,
                 screen_image = image_path
             )
+            
     except KeyboardInterrupt:
         print("Exiting AI Assistant. Goodbye!")
 

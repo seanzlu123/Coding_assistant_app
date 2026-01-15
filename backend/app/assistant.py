@@ -26,10 +26,11 @@ class Agent:
         self.default_response_mode = True # True: respond with text; False: respond with voice
         self.model = "gemini-2.5-flash"
         self.client = client
-        self.history = []
+        self.chat = self.client.chats.create(model=self.model)
     
     def toggle_response_mode(self):
-        '''Toglges between text and voice response modes.'''
+        '''Toggles between text and voice response modes.'''
+
         self.default_response_mode = not self.default_response_mode
         if self.default_response_mode:
             print(f"Response mode set to TEXT.")
@@ -52,7 +53,6 @@ class Agent:
         return audio
 
     def respond(self, text_input, audio_filename=None, screen_image=None):
-      
         """
         Gathers all inputs (Text, Audio, Screen), packages them for Gemini,
         and returns the text response.
@@ -79,7 +79,7 @@ class Agent:
             my_contents.append(text_input)
             print("Text input added.")
 
-        response = client.models.generate_content(model=self.model,contents = my_contents)
+        response = self.chat.send_message(message=my_contents)
 
         if response.text and self.default_response_mode:
             return response.text
@@ -91,17 +91,22 @@ if __name__ == "__main__":
     agent = Agent()
     agent.toggle_response_mode()  # Switch to voice mode
 
-    #Take screenshot
-    image_path = screen.take_screenshot()
+    try: 
+        while True:
+            input("Press Enter to interact with the AI assistant...")
 
-    #Record audio 
-    audio_path= audio.record_audio(duration=5, file_name = "test_audio1.wav")
+            #Take screenshot
+            image_path = screen.take_screenshot()
 
-    answer = agent.respond(
-        text_input = "You are an AI assistant pair programmer. Respond to the user based on the screenshot and audio provided.",
-        audio_filename = audio_path,
-        screen_image = image_path
-    )
+            #Record audio 
+            audio_path= audio.record_audio(duration=5, file_name = "test_audio1.wav")
 
+            answer = agent.respond(
+                text_input = "You are an AI assistant pair programmer. Respond to the user based on the screenshot and audio provided.",
+                audio_filename = audio_path,
+                screen_image = image_path
+            )
+    except KeyboardInterrupt:
+        print("Exiting AI Assistant. Goodbye!")
 
 

@@ -1,26 +1,80 @@
-import os 
+from fastapi import FastAPI, UploadFile, File, Form
 from dotenv import load_dotenv
+from pathlib import Path
 from google import genai
+from google.genai import types
+import shutil
+import requests
+import os
 
-#Load environment variables from .env file
-load_dotenv()
 
-# Set up Google GenAI API client
-client = genai.Client(api_key=os.getenv("GOOGLE_GENAI_API_KEY"))
+# --- 1. ROBUST ENV LOADING ---
+# Get the path to 'backend/app'
+current_dir = Path(__file__).resolve().parent
 
-def simple_query():
-    print("Sending request to Gemini...")
+# Go up two levels: backend/app -> backend -> ROOT
+env_path = current_dir.parent.parent / '.env'
+print(f"Loading .env from: {env_path}") # Debug print
+load_dotenv(dotenv_path=env_path)
 
-    try:
-        response = client.models.generate_content(
-            model = "gemini-2.5-flash",
-            contents = "Write a short poem about the beauty of nature.",
-        )
+# --- 2. GET API KEY ---
+# Check BOTH common names to be safe
+api_key = os.getenv("GOOGLE_GENAI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
-        print("Response from Gemini:", response.text)
+if not api_key:
+    # If this prints, check your .env file again!
+    raise ValueError(f"❌ API Key not found in {env_path}")
 
-    except Exception as e:
-        print("An error occurred:", str(e))
+print("✅ API Key found. Starting Server...")
 
-if __name__ == "__main__":
-    simple_query()
+#Initialize Clients
+app = FastAPI()
+client = genai.Client(api_key=api_key)
+
+#Create chat session with Gemini
+chat = client.chats.create(model = "gemini-2.5-flash")
+
+@app.post("/chat")
+async def chat_endpoint(
+    text_prompt: str = Form(...),
+    audio_file: UploadFile = File(None),
+    image_file: UploadFile = File(None)
+):
+    contents = []
+
+    print(f"User said: {text_prompt}")
+
+
+    # 1. Handle Audio: Save -> Upload -> Append
+    if audio_file:
+        print(f"Got audio file: {audio_file}")
+        temp_audio_name = f"temp_{audio_file.filename}"
+        with open(temp_audio_name, "wb") as buffer:
+            shutil.copyfileobj(audio_file.file, buffer)
+
+        print(f"Uploading audio file to Gemini...")
+        uploaded_audio = client.files.upload(file = temp_audio_name)
+        contents.append(uploaded_audio)
+
+    # 2. Handle Image: Save -> Upload -> Append
+    if image_file:
+        print(f"Got image file: {image_file}")
+        temp_image_name = f"temp_{image_file.filename}"
+        with open(temp_image_name, "wb") as buffer:
+            shutil.copyfileobj(image_file.file, buffer)
+        
+        print(f"Uploading image file to Gemini...")
+        uploaded_image = client.files.upload(file = temp_image_name)
+        contents.append(uploaded_image)
+
+    # 3. Lastly, handle User Text input
+    if text_prompt:
+        contents.append(text_prompt)
+
+    # 4. Generate response from Gemini
+    print(f"Gemini: Generating Response")
+    ai_response = chat.send_message(message=contents)
+    
+
+    return {"Response": ai_response.text}
+

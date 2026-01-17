@@ -1,120 +1,74 @@
-from dotenv import load_dotenv
-from pathlib import Path
-from google import genai
-from google.genai import types
-import os
-
-# Import custom modules
-import screen
+import requests
 import audio
-import voice
+import screen
 import helper
+import voice
 
-# Load environment variables from .env file
-current_dir = Path(__file__).resolve().parent
-env_path = current_dir.parent.parent / '.env'
-load_dotenv()
+# 1. Set up
+SERVER_URL = "http://127.0.0.1:8000/chat"
 
-api_key = os.getenv("GOOGLE_API_KEY") 
+print("--- 📡 AI Client Starting ---")
 
-if not api_key:
-    raise ValueError("API Key not found.")
+# 2. Gather Data
 
-client = genai.Client(api_key=api_key)
+#Record Audio
+print(f"Recording Audio for 7 seconds... Say Something")
+audio_file = audio.record_audio(duration=7, file_name = "client_audio.wav")
 
-class Agent:
-    def __init__(self):
-        self.default_response_mode = True # True: respond with text; False: respond with voice
-        self.model = "gemini-2.5-flash"
-        self.client = client
-        self.chat = self.client.chats.create(model=self.model)
+#Capture Screen
+print(f"Capturing Screen...")
+screen_image = screen.take_screenshot()
+screen_file_name = "client_screen.png"
+screen_image.save(screen_file_name)
+
+#Text
+text_input = "You are an AI assistant pair programmer. Respond to the user queries based on the provided audio and image context."
+
+
+# 3. Packaging File to send to Server
+text_package = {
+    "text_prompt": text_input
+}
+
+files_package = {
+    "audio_file": open(audio_file, "rb"),
+    "image_file": open(screen_file_name, "rb")
+}
+
+# 4. SEND TO SERVER
+print("🚀 Sending to Server...")\
+
+try: 
+    response = requests.post(
+        SERVER_URL,
+        data=text_package,
+        files=files_package
+    )
+
+    #Close files
+    files_package["audio_file"].close()
+    files_package["image_file"].close()
+
+    # 5. Handle response
+    if response.status_code == 200:
+        response_data = response.json()
+        ai_response = response_data["Response"]
+        print(f"Successfully received AI response: {ai_response}")
+
+        #Clean Response
+        filtered_text = helper.filter_noise_from_text(ai_response)
+        voice.speak(filtered_text)
     
-    def toggle_response_mode(self):
-        '''Toggles between text and voice response modes.'''
+    else:
+        print(f"Error: {response.status_code}")
+        print(response.text)
 
-        self.default_response_mode = not self.default_response_mode
-        if self.default_response_mode:
-            print(f"Response mode set to TEXT.")
-        else:
-            print(f"Response mode set to VOICE.")
-            
-    def upload_image(self, image_path):
-        '''Uploads a image file using Gemini Files API 
-        and returns the uploaded file reference.'''
+except Exception as e:
+    print(f"Connection failed: {e}")
 
-        image = self.client.files.upload(file=image_path)
-        return image
 
-    def upload_audio(self, audio_path):
-        '''Uploads an audio file using Gemini Files API 
-        and returns the uploaded file reference.'''
 
-        print(f"Uploading audio from: {audio_path}")
-        audio = self.client.files.upload(file=audio_path)
-        return audio
 
-    def respond(self, text_input, audio_filename=None, screen_image=None):
-        """
-        Gathers all inputs (Text, Audio, Screen), packages them for Gemini,
-        and returns the text response.
-        """
 
-        my_contents = []
-        if audio_filename:
-            audio_file = self.upload_audio(audio_filename)
-            my_contents.append(audio_file)
-            print("Audio file uploaded.")
-
-        if screen_image:
-            if not isinstance(screen_image, str):
-                print("Detected PIL Image object. Saving to file...")
-                temp_filename = "temp_screen.png"
-                screen_image.save(temp_filename)
-                screen_image = temp_filename # Update variable to be the PATH string
-                
-            image_file = self.upload_image(screen_image)
-            my_contents.append(image_file)
-            print("Screen image uploaded.")
-        
-        if text_input:
-            my_contents.append(text_input)
-            print("Text input added.")
-    
-        response = self.chat.send_message(message=my_contents)
-        
-        if response.text and self.default_response_mode:
-            return response.text
-        else:
-            # VOICE MODE
-            print(response.text) # 1. Print raw text so you can read code
-            
-            # 2. Clean the text so the voice skips the code
-            clean_text = helper.filter_noise_from_text(response.text)
-            
-            # 3. Speak the CLEAN text
-            voice.speak(clean_text)
-
-if __name__ == "__main__":
-    agent = Agent()
-    agent.toggle_response_mode() # Switch to voice mode
-
-    try: 
-        while True:
-            input("Press Enter to interact with the AI assistant...")
-
-            #Take screenshot
-            image_path = screen.take_screenshot()
-
-            #Record audio 
-            audio_path= audio.record_audio(duration=5, file_name = "test_audio1.wav")
-
-            answer = agent.respond(
-                text_input = "You are an AI assistant pair programmer. Respond to the user based on the screenshot and audio provided.",
-                audio_filename = audio_path,
-                screen_image = image_path
-            )
-            
-    except KeyboardInterrupt:
-        print("Exiting AI Assistant. Goodbye!")
 
 

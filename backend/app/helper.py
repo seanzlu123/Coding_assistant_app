@@ -31,18 +31,3 @@ def retrieve_code_from_text(text):
     code_block = re.findall(r"```([\s\S]*?)```", text)
 
     return code_block 
-
-if __name__ == "__main__":
-    sample_text = """
-    Here is some sample text with code:
-
-    ```python
-    def hello_world():
-        print("Hello, world!")
-    ```
-
-    And some more text here.
-    """
-
-    cleaned_text = retrieve_code_from_text(sample_text)
-    print(cleaned_text)

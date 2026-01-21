@@ -1,4 +1,7 @@
 import re
+import time
+import os
+import glob
 
 def filter_noise_from_text(text):
     """
@@ -28,6 +31,35 @@ def retrieve_code_from_text(text):
     """
 
     #  Isolate the code blocks before filtering further
-    code_block = re.findall(r"```([\s\S]*?)```", text)
+    matches = re.findall(r"```(?:[\w]*\n)?([\s\S]*?)```", text)
 
-    return code_block 
+    return matches
+
+def write_code_block(code_blocks): 
+    """
+    Takes code blocks and writes to a solution file
+    """
+
+    filename = f"solution_{int(time.time())}.py"
+    with open(filename, "w") as file:
+        file.write("\n\n".join(code_blocks))
+
+def delete_old_files():
+    """
+    Automatically deletes files containing patterns listed in patterns
+    """
+
+    patterns = ["response_*", "client_*.*", "temp_*.*"] 
+
+    for pattern in patterns:
+        for file_path in glob.glob(pattern):
+            try:
+                os.remove(file_path)
+                print(f"Deleted: {file_path}")
+            
+            except Exception as e:
+                print(e)
+
+        
+
+        

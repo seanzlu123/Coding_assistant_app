@@ -3,6 +3,9 @@ import audio
 import screen
 import helper
 import voice
+import datetime 
+
+auto_delete_files = True
 
 # 1. Set up
 SERVER_URL = "http://127.0.0.1:8000/chat"
@@ -36,7 +39,7 @@ files_package = {
 }
 
 # 4. SEND TO SERVER
-print("🚀 Sending to Server...")\
+print("🚀 Sending to Server...")
 
 try: 
     response = requests.post(
@@ -53,15 +56,25 @@ try:
     if response.status_code == 200:
         response_data = response.json()
         ai_response = response_data["Response"]
+
+        #Write Code solution to solution file
+        code_blocks = helper.retrieve_code_from_text(ai_response)
+        helper.write_code_block(code_blocks)
+
         print(f"Successfully received AI response: {ai_response}")
 
         #Clean Response
         filtered_text = helper.filter_noise_from_text(ai_response)
         voice.speak(filtered_text)
+
+        if auto_delete_files:
+            helper.delete_old_files()
     
     else:
         print(f"Error: {response.status_code}")
         print(response.text)
+
+
 
 except Exception as e:
     print(f"Connection failed: {e}")

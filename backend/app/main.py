@@ -20,7 +20,7 @@ load_dotenv(dotenv_path=env_path)
 
 # --- 2. GET API KEY ---
 # Check BOTH common names to be safe
-api_key = os.getenv("GOOGLE_GENAI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+api_key = os.getenv("GOOGLE_API_KEY")
 
 if not api_key:
     # If this prints, check your .env file again!

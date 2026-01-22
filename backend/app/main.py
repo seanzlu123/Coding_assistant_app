@@ -1,4 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, Form
+from fastapi.middleware.cors import CORSMiddleware # <--- NEW
 from dotenv import load_dotenv
 from pathlib import Path
 from google import genai
@@ -29,6 +30,13 @@ print("✅ API Key found. Starting Server...")
 
 #Initialize Clients
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 client = genai.Client(api_key=api_key)
 
 #Create chat session with Gemini
